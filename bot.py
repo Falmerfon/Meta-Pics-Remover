@@ -870,38 +870,50 @@ async def handle_count_callback(update: Update, context: ContextTypes.DEFAULT_TY
     errors = 0
     zip_files: list[tuple[str, bytes]] = []
 
-    for photo_idx, img_bytes in enumerate(batch):
-        for copy_idx in range(1, n_copies + 1):
-            unique_index = photo_idx * 100 + copy_idx
-            camera_index = photo_idx + copy_idx
-            try:
-                buf, filename = make_copy(img_bytes, unique_index, camera_index)
-                raw = buf.read()
-                zip_files.append((filename, raw))
-                await context.bot.send_document(
-                    chat_id=query.message.chat_id,
-                    document=io.BytesIO(raw),
-                    filename=filename,
-                )
-            except Exception as e:
-                logger.exception(f"Error photo {photo_idx + 1} copy {copy_idx}")
-                errors += 1
+    try:
+        for photo_idx, img_bytes in enumerate(batch):
+            for copy_idx in range(1, n_copies + 1):
+                unique_index = photo_idx * 100 + copy_idx
+                camera_index = photo_idx + copy_idx
+                try:
+                    buf, filename = make_copy(img_bytes, unique_index, camera_index)
+                    raw = buf.read()
+                    zip_files.append((filename, raw))
+                    await context.bot.send_document(
+                        chat_id=query.message.chat_id,
+                        document=io.BytesIO(raw),
+                        filename=filename,
+                    )
+                except Exception:
+                    logger.exception(f"Error photo {photo_idx + 1} copy {copy_idx}")
+                    errors += 1
 
-    # Store files for ZIP download
-    context.user_data["zip_files"] = zip_files
-    context.user_data["state"] = STATE_IDLE
+        context.user_data["zip_files"] = zip_files
 
-    summary = f"✅ {total_files - errors} файлов готово"
-    if errors:
-        summary += f" ({errors} ошибок)"
+        summary = f"✅ {total_files - errors} файлов готово"
+        if errors:
+            summary += f" ({errors} ошибок)"
 
-    await context.bot.send_message(
-        chat_id=query.message.chat_id,
-        text=summary,
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("📦 Скачать ZIP", callback_data="dl_zip"),
-        ]]),
-    )
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=summary,
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("📦 Скачать ZIP", callback_data="dl_zip"),
+            ]]),
+        )
+    except Exception:
+        logger.exception("Fatal error during processing")
+        try:
+            await context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text="❌ Ошибка при обработке. Отправь фото заново.",
+            )
+        except Exception:
+            pass
+    finally:
+        # Сбрасываем состояние и батч в любом случае — бот всегда готов к новой работе
+        context.user_data["state"] = STATE_IDLE
+        context.user_data["batch"] = []
 
 
 async def handle_zip_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
