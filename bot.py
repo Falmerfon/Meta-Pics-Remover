@@ -893,6 +893,7 @@ async def handle_count_callback(update: Update, context: ContextTypes.DEFAULT_TY
         summary = f"✅ {total_files - errors} файлов готово"
         if errors:
             summary += f" ({errors} ошибок)"
+        summary += "\n\nМожно сразу отправить следующие фото."
 
         await context.bot.send_message(
             chat_id=query.message.chat_id,
