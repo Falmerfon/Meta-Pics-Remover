@@ -878,7 +878,12 @@ async def handle_count_callback(update: Update, context: ContextTypes.DEFAULT_TY
                 try:
                     buf, filename = make_copy(img_bytes, unique_index, camera_index)
                     raw = buf.read()
-                    zip_files.append((filename, raw))
+                    # В ZIP: папка photo_01/, copy_01_ префикс — удобная сортировка
+                    zip_path = (
+                        f"photo_{photo_idx + 1:02d}/"
+                        f"copy_{copy_idx:02d}_{filename}"
+                    )
+                    zip_files.append((zip_path, raw))
                     await context.bot.send_document(
                         chat_id=query.message.chat_id,
                         document=io.BytesIO(raw),
